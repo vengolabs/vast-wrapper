@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>ON_ADS_MANAGER_LOADED</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            overflow: hidden;
+        }
+
+        .fullscreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            text-align: center;
+        }
+
+        .fill-screen {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="fullscreen">
+        <video id="vast-player" class="fill-screen" muted />
+    </div>
+
+    <script>
+        //****************************************************
+        //TODO Add the device ad unit id
+        var adUnitId = "";
+
+        //TODO Add the organization id provided by Vengo
+        var organizationId = "";
+        //****************************************************
+
+        //Ad playing events set as the document title and
+        //posted to a parent frame
+        var adEvents = {
+            loadedAdManager: "ON_ADS_MANAGER_LOADED",
+            loadedAdPlayer: "LOADED",
+            startedAdPlayback: "STARTED",
+            firstQuartileAdPlayback: "FIRST_QUARTILE",
+            midpointAdPlayback: "MIDPOINT",
+            thirdQuartileAdPlayback: "THIRD_QUARTILE",
+            completedAdPlayback: "COMPLETE",
+            noAdsToPlay: "ALL_ADS_COMPLETED",
+            error: "AD_ERROR"
+        };
+
+        //VAST tracking events
+        var vastTrackingEvents = {
+            start: "start",
+            firstQuartile: "firstQuartile",
+            midpoint: "midpoint",
+            thirdQuartile: "thirdQuartile",
+            complete: "complete"
+        }
+
+        //Start main function
+        getVASTVideo();
+
+        /**
+         * Gets VAST tag from Vengo staging ad server
+         * using the ad unit id and organization id 
+         */
+        function getVASTVideo() {
+            var url = "https://adserver.vengolabs.com/api/v2/ad_request?organization_id="
+                + organizationId + "&ad_unit_id=" + adUnitId;
+
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", url, true);
+                xhr.onreadystatechange = function () {
+                    if (this.readyState === XMLHttpRequest.DONE) {
+                        if (this.status === 200) {
+                            parseXML(this.responseXML);
+                        }
+                        else {
+                            setAdEventState(adEvents.error);
+                        }
+                    }
+                };
+                xhr.send(null);
+            } catch (e) {
+                console.error(e);
+                setAdEventState(adEvents.error);
+            }
+        }
+
+        /**
+         * Sends VAST tracking events 
+         */
+        function sendTrackingEvents(event, trackingEvents) {
+            console.log(event);
+            for (var i = 0; i < trackingEvents.length; i++) {
+                if (trackingEvents[i].attributes[0].nodeValue == event) {
+                    try {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open("GET", trackingEvents[i].textContent, true);
+                        xhr.send(null);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                    break;
+                }
+            }
+        }
+
+        /**
+         * Parses the VAST XML
+         */
+        function parseXML(vast) {
+            //Checks if the VAST tag has a MediaFile element
+            //If it doesn't, then there isn't a file to be played
+            var mediaFiles = vast.getElementsByTagName("MediaFile");
+            if (mediaFiles.length > 0) {
+                //Get all tracking events and set up video player
+                var trackingEvents = vast.getElementsByTagName("Tracking");
+                setupVASTPlayerAndEvents(mediaFiles[0].textContent, trackingEvents);
+            }
+            else {
+                setAdEventState(adEvents.noAdsToPlay);
+            }
+        }
+
+        /**
+         * Sets up the VAST tracking events and plays the video
+         */
+        function setupVASTPlayerAndEvents(videoUrl, trackingEvents) {
+            var vastPlayer = document.getElementById("vast-player");
+            vastPlayer.addEventListener("loadedmetadata", function () {
+                setAdEventState(adEvents.loadedAdPlayer);
+
+                //Compute the quartile durations
+                var duration = this.duration;
+                var firstQuartile = duration * 0.25;
+                var midpoint = duration * 0.5;
+                var thirdQuartile = duration * 0.75;
+
+                var firstQuartileComplete = false;
+                var midpointComplete = false;
+                var thirdQuartileComplete = false;
+
+                //Attach listener to video duration to send tracking
+                //events at the appropriate time
+                this.addEventListener("timeupdate", function () {
+                    if (this.currentTime >= thirdQuartile && !thirdQuartileComplete) {
+                        thirdQuartileComplete = true;
+                        sendTrackingEvents(vastTrackingEvents.thirdQuartile, trackingEvents);
+                        setAdEventState(adEvents.thirdQuartileAdPlayback);
+                    }
+                    else if (this.currentTime >= midpoint && !midpointComplete) {
+                        midpointComplete = true;
+                        sendTrackingEvents(vastTrackingEvents.midpoint, trackingEvents);
+                        setAdEventState(adEvents.midpointAdPlayback);
+                    }
+                    else if (this.currentTime >= firstQuartile && !firstQuartileComplete) {
+                        firstQuartileComplete = true;
+                        sendTrackingEvents(vastTrackingEvents.firstQuartile, trackingEvents);
+                        setAdEventState(adEvents.firstQuartileAdPlayback);
+                    }
+                });
+
+            });
+
+            //Attach listener to wait until enough of the video has loaded
+            //before playing
+            vastPlayer.addEventListener("canplaythrough", function () {
+                this.play();
+                sendTrackingEvents(vastTrackingEvents.start, trackingEvents);
+                setAdEventState(adEvents.startedAdPlayback);
+            });
+
+            //Attach listener to send complete tracking event
+            vastPlayer.addEventListener("ended", function () {
+                sendTrackingEvents(vastTrackingEvents.complete, trackingEvents);
+                setAdEventState(adEvents.completedAdPlayback);
+                setAdEventState(adEvents.noAdsToPlay);
+            });
+
+            //Set the video URL to load the video
+            vastPlayer.src = videoUrl;
+        }
+
+        /**
+         * Sets the ad event in the document title and
+         * posts a message to the parent frame
+         */
+        function setAdEventState(adEvent) {
+            //Set the document title
+            document.title = adEvent;
+
+            //Post message to a parent iframe
+            window.parent.postMessage(adEvent, '*');
+
+            //Possible implementation for listener in parent iframe:
+            /*window.addEventListener("message", function (event) {
+                console.log("Ad event received: " + event.data);
+            });*/
+        }
+    </script>
+</body>
+
+</html>
