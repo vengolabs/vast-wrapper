@@ -32,7 +32,7 @@
 
 <body>
     <div class="fullscreen">
-        <video id="vast-player" class="fill-screen" muted/>
+        <video id="vast-player" class="fill-screen" muted />
     </div>
 
     <script>
@@ -74,21 +74,21 @@
          * Gets VAST tag from Vengo staging ad server
          * using the ad unit id and organization id 
          */
-        function getStagingVASTVideo()
-        {
-            var url = "https://staging-adserver.vengolabs.com/api/v2/ad_request?organization_id=" 
-            + organizationId + "&ad_unit_id=" + adUnitId;
+        function getStagingVASTVideo() {
+            var url = "https://staging-adserver.vengolabs.com/api/v2/ad_request?organization_id="
+                + organizationId + "&ad_unit_id=" + adUnitId;
 
             try {
                 var xhr = new XMLHttpRequest();
                 xhr.open("GET", url, true);
                 xhr.onreadystatechange = function () {
-                    if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-                        parseXML(this.responseXML);
-                    }
-                    else
-                    {
-                        setAdEventState(adEvents.error);
+                    if (this.readyState === XMLHttpRequest.DONE) {
+                        if (this.status === 200) {
+                            parseXML(this.responseXML);
+                        }
+                        else {
+                            setAdEventState(adEvents.error);
+                        }
                     }
                 };
                 xhr.send(null);
@@ -104,8 +104,7 @@
         function sendTrackingEvents(event, trackingEvents) {
             console.log(event);
             for (var i = 0; i < trackingEvents.length; i++) {
-                if (trackingEvents[i].attributes[0].nodeValue == event)
-                {
+                if (trackingEvents[i].attributes[0].nodeValue == event) {
                     try {
                         var xhr = new XMLHttpRequest();
                         xhr.open("GET", trackingEvents[i].textContent, true);
@@ -120,30 +119,27 @@
 
         /**
          * Parses the VAST XML
-         */ 
+         */
         function parseXML(vast) {
             //Checks if the VAST tag has a MediaFile element
             //If it doesn't, then there isn't a file to be played
             var mediaFiles = vast.getElementsByTagName("MediaFile");
-            if (mediaFiles.length > 0)
-            {
+            if (mediaFiles.length > 0) {
                 //Get all tracking events and set up video player
                 var trackingEvents = vast.getElementsByTagName("Tracking");
                 setupVASTPlayerAndEvents(mediaFiles[0].textContent, trackingEvents);
             }
-            else
-            {
+            else {
                 setAdEventState(adEvents.noAdsToPlay);
             }
         }
 
         /**
          * Sets up the VAST tracking events and plays the video
-         */ 
-        function setupVASTPlayerAndEvents(videoUrl, trackingEvents)
-        {
+         */
+        function setupVASTPlayerAndEvents(videoUrl, trackingEvents) {
             var vastPlayer = document.getElementById("vast-player");
-            vastPlayer.addEventListener("loadedmetadata", function() {
+            vastPlayer.addEventListener("loadedmetadata", function () {
                 setAdEventState(adEvents.loadedAdPlayer);
 
                 //Compute the quartile durations
@@ -158,9 +154,8 @@
 
                 //Attach listener to video duration to send tracking
                 //events at the appropriate time
-                this.addEventListener("timeupdate", function() {
-                    if (this.currentTime >= thirdQuartile && !thirdQuartileComplete)
-                    {
+                this.addEventListener("timeupdate", function () {
+                    if (this.currentTime >= thirdQuartile && !thirdQuartileComplete) {
                         thirdQuartileComplete = true;
                         sendTrackingEvents(vastTrackingEvents.thirdQuartile, trackingEvents);
                         setAdEventState(adEvents.thirdQuartileAdPlayback);
@@ -181,7 +176,7 @@
 
             //Attach listener to wait until enough of the video has loaded
             //before playing
-            vastPlayer.addEventListener("canplaythrough", function() {
+            vastPlayer.addEventListener("canplaythrough", function () {
                 this.play();
                 sendTrackingEvents(vastTrackingEvents.start, trackingEvents);
                 setAdEventState(adEvents.startedAdPlayback);
@@ -201,7 +196,7 @@
         /**
          * Sets the ad event in the document title and
          * posts a message to the parent frame
-         */ 
+         */
         function setAdEventState(adEvent) {
             //Set the document title
             document.title = adEvent;
