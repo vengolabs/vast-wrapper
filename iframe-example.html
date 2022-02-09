@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Player in iframe</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            overflow: hidden;
+        }
+
+        .fullscreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            text-align: center;
+        }
+
+        #ad-player {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            left: 0px;
+            top: 0px;
+            overflow: hidden;
+            border: 0;
+            background: black;
+        }
+    </style>
+</head>
+
+<body>
+    <iframe id="ad-player" scrolling="no"></iframe>
+    <script>
+        //Set the iframe source
+        var domain = "staging-vast.html";
+        document.getElementById("ad-player").src = domain;
+
+        //Listen for event message
+        window.addEventListener("message", function (event) {
+            console.log("Event received: " + event.data);
+            document.title = event.data;
+        });
+    </script>
+</body>
+
+</html>
