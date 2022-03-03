@@ -118,6 +118,20 @@
         }
 
         /**
+        * Hits the impression endpoint
+        */
+        function sendImpression(impressionUrl) {
+            console.log("Impression");
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", impressionUrl, true);
+                xhr.send(null);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        /**
          * Parses the VAST XML
          */
         function parseXML(vast) {
@@ -128,6 +142,7 @@
                 //Get all tracking events and set up video player
                 var trackingEvents = vast.getElementsByTagName("Tracking");
                 setupVASTPlayerAndEvents(mediaFiles[0].textContent, trackingEvents);
+                sendImpression((vast.getElementsByTagName("Impression"))[0].textContent);
             }
             else {
                 setAdEventState(adEvents.noAdsToPlay);
